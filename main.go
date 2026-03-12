@@ -1,9 +1,14 @@
 package main
 
 import (
+	"archive/tar"
+	"fmt"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/docker/docker/client"
 	"github.com/go-git/go-git/v6"
 )
 
@@ -29,6 +34,52 @@ func main() {
 		return
 	}
 }
+func generateWalkFunc(dirPath string, tw *tar.Writer) filepath.WalkFunc {
+	return func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		name, err := filepath.Rel(dirPath, path)
+		if err != nil {
+			return err
+		}
+
+		if name == "." {
+			return nil
+		}
+
+		hdr, err := tar.FileInfoHeader(info, "")
+		if err != nil {
+			return err
+		}
+
+		hdr.Name = name
+		if info.IsDir() {
+			hdr.Name += "/"
+		}
+
+		fmt.Printf("%+v\n", hdr)
+
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			if _, err = io.Copy(tw, f); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
 func cloneRepo(dirPath string, repoURL string) error {
 	_, err := git.PlainClone(dirPath, &git.CloneOptions{
 		URL: repoURL,
