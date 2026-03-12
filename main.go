@@ -34,6 +34,34 @@ func main() {
 		return
 	}
 }
+
+func toArchive(archivePath string, dirPath string) error {
+	tarFile, err := os.Create(archivePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		err := tarFile.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	tw := tar.NewWriter(tarFile)
+	defer func() {
+		err := tw.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	err = filepath.Walk(dirPath, generateWalkFunc(dirPath, tw))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func generateWalkFunc(dirPath string, tw *tar.Writer) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {
 		if err != nil {
