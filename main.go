@@ -77,6 +77,7 @@ func generateWalkFunc(dirPath string, tw *tar.Writer) filepath.WalkFunc {
 		if err != nil {
 			return err
 		}
+		name = filepath.ToSlash(name)
 
 		if name == "." {
 			return nil
