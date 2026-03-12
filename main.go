@@ -33,6 +33,11 @@ func main() {
 	if err != nil {
 		return
 	}
+
+	err = toArchive(archivePath, dirPath)
+	if err != nil {
+		return
+	}
 }
 
 func toArchive(archivePath string, dirPath string) error {
