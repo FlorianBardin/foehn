@@ -9,15 +9,36 @@ import (
 
 func main() {
 	dirPath := "./tmp/build1"
+	repoURL := "https://github.com/FlorianBardin/florianbardin-portfolio"
+	archivePath := "./archive/build1.tar"
+
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer func() {
+		err := cli.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	err = cloneRepo(dirPath, repoURL)
+	if err != nil {
+		return
+	}
+}
+func cloneRepo(dirPath string, repoURL string) error {
 	_, err := git.PlainClone(dirPath, &git.CloneOptions{
-		URL: "https://github.com/mmumshad/simple-webapp-docker",
+		URL: repoURL,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = os.RemoveAll(dirPath + "/.git")
-	if err != nil {
+	if err = os.RemoveAll(dirPath + "/.git"); err != nil {
 		log.Fatal(err)
 	}
+	return err
 }
