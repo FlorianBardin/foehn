@@ -17,9 +17,9 @@ import (
 )
 
 func main() {
-	dirPath := "./tmp/build1"
+	dirPath := "./tmp/build"
 	repoURL := "https://github.com/mmumshad/simple-webapp-docker"
-	archivePath := "./archive/build1.tar"
+	archivePath := "./archive/build.tar"
 	ctx := context.Background()
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -50,15 +50,22 @@ func main() {
 	}
 	defer f.Close()
 
-	res, err := cli.ImageBuild(ctx, f, build.ImageBuildOptions{Tags: []string{"app1:latest"}})
+	err = buildAndRunFromTar(cli, ctx, f)
 	if err != nil {
 		log.Fatal(err)
+	}
+}
+
+func buildAndRunFromTar(cli *client.Client, ctx context.Context, f *os.File) error {
+	res, err := cli.ImageBuild(ctx, f, build.ImageBuildOptions{Tags: []string{"app1:latest"}})
+	if err != nil {
+		return err
 	}
 	defer res.Body.Close()
 
 	_, err = io.Copy(os.Stdout, res.Body)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	config := &container.Config{
@@ -72,15 +79,16 @@ func main() {
 		},
 	}
 
-	createResponse, err := cli.ContainerCreate(ctx, config, hostConfig, nil, nil, "my-app1")
+	creationResponse, err := cli.ContainerCreate(ctx, config, hostConfig, nil, nil, "my-app1")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	err = cli.ContainerStart(ctx, createResponse.ID, container.StartOptions{})
+	err = cli.ContainerStart(ctx, creationResponse.ID, container.StartOptions{})
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+	return nil
 }
 
 func toArchive(archivePath string, dirPath string) error {
