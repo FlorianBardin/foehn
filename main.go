@@ -2,20 +2,25 @@ package main
 
 import (
 	"archive/tar"
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 
+	"github.com/docker/docker/api/types/build"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 	"github.com/go-git/go-git/v6"
 )
 
 func main() {
 	dirPath := "./tmp/build1"
-	repoURL := "https://github.com/FlorianBardin/florianbardin-portfolio"
+	repoURL := "https://github.com/mmumshad/simple-webapp-docker"
 	archivePath := "./archive/build1.tar"
+	ctx := context.Background()
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -31,12 +36,50 @@ func main() {
 
 	err = cloneRepo(dirPath, repoURL)
 	if err != nil {
-		return
+		log.Fatal(err)
 	}
 
 	err = toArchive(archivePath, dirPath)
 	if err != nil {
-		return
+		log.Fatal(err)
+	}
+
+	f, err := os.Open(archivePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	res, err := cli.ImageBuild(ctx, f, build.ImageBuildOptions{Tags: []string{"app1:latest"}})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer res.Body.Close()
+
+	_, err = io.Copy(os.Stdout, res.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	config := &container.Config{
+		Image:        "app1:latest",
+		ExposedPorts: nat.PortSet{"8080/tcp": {}},
+	}
+
+	hostConfig := &container.HostConfig{
+		PortBindings: nat.PortMap{
+			"8080/tcp": []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "8080"}},
+		},
+	}
+
+	createResponse, err := cli.ContainerCreate(ctx, config, hostConfig, nil, nil, "my-app1")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = cli.ContainerStart(ctx, createResponse.ID, container.StartOptions{})
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
