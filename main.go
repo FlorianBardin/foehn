@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -18,7 +19,7 @@ import (
 
 func main() {
 	dirPath := "./tmp/build"
-	repoURL := "https://github.com/mmumshad/simple-webapp-docker"
+	repoURL := "https://github.com/FlorianBardin/simple-webapp-docker"
 	archivePath := "./archive/build.tar"
 	ctx := context.Background()
 
@@ -88,34 +89,33 @@ func buildAndRunFromTar(cli *client.Client, ctx context.Context, f *os.File) err
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
-func toArchive(archivePath string, dirPath string) error {
-	tarFile, err := os.Create(archivePath)
-	if err != nil {
-		log.Fatal(err)
+func toArchive(archivePath string, dirPath string) (err error) {
+	tarFile, e := os.Create(archivePath)
+	if e != nil {
+		return e
 	}
 	defer func() {
-		err := tarFile.Close()
-		if err != nil {
-			log.Fatal(err)
+		closeErr := tarFile.Close()
+		if closeErr != nil {
+			err = errors.Join(err, closeErr)
 		}
 	}()
 
 	tw := tar.NewWriter(tarFile)
 	defer func() {
-		err := tw.Close()
-		if err != nil {
-			log.Fatal(err)
+		closeErr := tw.Close()
+		if closeErr != nil {
+			err = errors.Join(err, closeErr)
 		}
 	}()
 
 	err = filepath.Walk(dirPath, generateWalkFunc(dirPath, tw))
-	if err != nil {
-		return err
-	}
-	return nil
+
+	return err
 }
 
 func generateWalkFunc(dirPath string, tw *tar.Writer) filepath.WalkFunc {
@@ -170,11 +170,12 @@ func cloneRepo(dirPath string, repoURL string) error {
 		URL: repoURL,
 	})
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if err = os.RemoveAll(dirPath + "/.git"); err != nil {
-		log.Fatal(err)
+		return err
 	}
-	return err
+
+	return nil
 }
