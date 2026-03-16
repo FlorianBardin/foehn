@@ -20,7 +20,8 @@ import (
 
 func main() {
 	uniqueId := uuid.New().String()
-	dirPath := "./tmp/build-" + uniqueId
+	baseTmpDir := os.TempDir()
+	dirPath := filepath.Join(baseTmpDir, "foehn-build-"+uniqueId)
 	archivePath := dirPath + ".tar"
 
 	repoURL := "https://github.com/FlorianBardin/simple-webapp-docker"
