@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/docker/docker/api/types/build"
 	"github.com/docker/docker/api/types/container"
@@ -78,6 +79,9 @@ func main() {
 }
 
 func buildAndRunFromTar(cli *client.Client, ctx context.Context, f *os.File) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute*10)
+	defer cancel()
+
 	containerName := "foehn-app-" + uuid.New().String()
 
 	res, err := cli.ImageBuild(ctx, f, build.ImageBuildOptions{Tags: []string{containerName + ":latest"}})
@@ -195,7 +199,7 @@ func cloneRepo(dirPath string, repoURL string) error {
 		return err
 	}
 
-	if err = os.RemoveAll(dirPath + "/.git"); err != nil {
+	if err = os.RemoveAll(filepath.Join(dirPath, ".git")); err != nil {
 		return err
 	}
 
