@@ -21,7 +21,7 @@ import (
 func main() {
 	uniqueId := uuid.New().String()
 	dirPath := "./tmp/build-" + uniqueId
-	archivePath := "./archive/build-" + uniqueId + ".tar"
+	archivePath := dirPath + ".tar"
 
 	repoURL := "https://github.com/FlorianBardin/simple-webapp-docker"
 
@@ -57,6 +57,14 @@ func main() {
 
 	err = buildAndRunFromTar(cli, ctx, f)
 	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err = os.Remove(archivePath); err != nil {
+		log.Fatal(err)
+	}
+
+	if err = os.RemoveAll(dirPath); err != nil {
 		log.Fatal(err)
 	}
 }
