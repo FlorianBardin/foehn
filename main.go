@@ -29,43 +29,50 @@ func main() {
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		log.Fatal(err)
+		log.Print("Error creating docker client : ", err)
+		return
 	}
-
 	defer func() {
 		err := cli.Close()
 		if err != nil {
-			log.Fatal(err)
+			log.Print("Error closing docker client : ", err)
 		}
 	}()
 
 	err = cloneRepo(dirPath, repoURL)
 	if err != nil {
-		log.Fatal(err)
+		log.Print("Error cloning repo : ", err)
+		return
 	}
+	defer func(path string) {
+		err := os.RemoveAll(path)
+		if err != nil {
+			log.Print("Failed to remove directory : ", path)
+		}
+	}(dirPath)
 
 	err = toArchive(archivePath, dirPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Print("Error archiving : ", err)
+		return
 	}
+	defer func(path string) {
+		err := os.Remove(path)
+		if err != nil {
+			log.Print("Failed to remove directory : ", path)
+		}
+	}(archivePath)
 
 	f, err := os.Open(archivePath)
 	if err != nil {
-		log.Fatal(err)
+		log.Print("Error opening archive : ", err)
+		return
 	}
 	defer f.Close()
 
 	err = buildAndRunFromTar(cli, ctx, f)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err = os.Remove(archivePath); err != nil {
-		log.Fatal(err)
-	}
-
-	if err = os.RemoveAll(dirPath); err != nil {
-		log.Fatal(err)
+		log.Print("Failed to build and run from tar : ", err)
 	}
 }
 
