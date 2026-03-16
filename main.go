@@ -15,12 +15,16 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/go-git/go-git/v6"
+	"github.com/google/uuid"
 )
 
 func main() {
-	dirPath := "./tmp/build"
+	uniqueId := uuid.New().String()
+	dirPath := "./tmp/build-" + uniqueId
+	archivePath := "./archive/build-" + uniqueId + ".tar"
+
 	repoURL := "https://github.com/FlorianBardin/simple-webapp-docker"
-	archivePath := "./archive/build.tar"
+
 	ctx := context.Background()
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -58,7 +62,9 @@ func main() {
 }
 
 func buildAndRunFromTar(cli *client.Client, ctx context.Context, f *os.File) error {
-	res, err := cli.ImageBuild(ctx, f, build.ImageBuildOptions{Tags: []string{"app1:latest"}})
+	containerName := "foehn-app-" + uuid.New().String()
+
+	res, err := cli.ImageBuild(ctx, f, build.ImageBuildOptions{Tags: []string{containerName + ":latest"}})
 	if err != nil {
 		return err
 	}
@@ -70,17 +76,17 @@ func buildAndRunFromTar(cli *client.Client, ctx context.Context, f *os.File) err
 	}
 
 	config := &container.Config{
-		Image:        "app1:latest",
+		Image:        containerName + ":latest",
 		ExposedPorts: nat.PortSet{"8080/tcp": {}},
 	}
 
 	hostConfig := &container.HostConfig{
 		PortBindings: nat.PortMap{
-			"8080/tcp": []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "8080"}},
+			"8080/tcp": []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: ""}},
 		},
 	}
 
-	creationResponse, err := cli.ContainerCreate(ctx, config, hostConfig, nil, nil, "my-app1")
+	creationResponse, err := cli.ContainerCreate(ctx, config, hostConfig, nil, nil, containerName)
 	if err != nil {
 		return err
 	}
