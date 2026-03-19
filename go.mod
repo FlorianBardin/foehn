@@ -1,4 +1,4 @@
-module foehn
+module github.com/FlorianBardin/foehn
 
 go 1.25.0
 
