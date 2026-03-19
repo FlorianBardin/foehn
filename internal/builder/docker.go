@@ -2,8 +2,13 @@ package builder
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"os"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/build"
@@ -42,14 +47,34 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 		return ContainerInfo{}, err
 	}
 
+	imageDetails, err := cli.ImageInspect(ctx, containerName)
+	if err != nil {
+		return ContainerInfo{}, err
+	}
+
+	if len(imageDetails.Config.ExposedPorts) == 0 {
+		return ContainerInfo{}, fmt.Errorf("deployement refused: dockerfile should contains at least one exposed port")
+	}
+
+	for k, v := range imageDetails.Config.ExposedPorts {
+		fmt.Printf("exposed port: %v with key : %v \n", v, k)
+	}
+
+	port, err := extractLowestPort(imageDetails.Config.ExposedPorts)
+	if err != nil {
+		return ContainerInfo{}, err
+	}
+
+	containerPort := nat.Port(port + "/tcp")
+
 	config := &container.Config{
 		Image:        containerName + ":latest",
-		ExposedPorts: nat.PortSet{"8080/tcp": {}},
+		ExposedPorts: nat.PortSet{containerPort: {}},
 	}
 
 	hostConfig := &container.HostConfig{
 		PortBindings: nat.PortMap{
-			"8080/tcp": []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: ""}},
+			containerPort: []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: ""}},
 		},
 	}
 
@@ -68,11 +93,35 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 		return ContainerInfo{}, err
 	}
 
-	var publicPort string
-	for _, ports := range inspectResponse.NetworkSettings.Ports {
-		publicPort = ports[0].HostPort
-		break
+	if len(inspectResponse.NetworkSettings.Ports) == 0 {
+		return ContainerInfo{}, fmt.Errorf("deployement refused: container should at least exposed one port")
 	}
+	publicPort := inspectResponse.NetworkSettings.Ports[containerPort][0].HostPort
 
 	return ContainerInfo{containerName, publicPort}, nil
+}
+
+func extractLowestPort(exposedPorts map[string]struct{}) (lowestPort string, err error) {
+	var ports []int
+
+	for port := range exposedPorts {
+		intPort, cvtError := strconv.Atoi(strings.Split(port, "/")[0])
+		if cvtError != nil {
+			cvtError = fmt.Errorf("failed to convert port %s to int : %v", port, cvtError)
+			err = errors.Join(err, cvtError)
+			continue
+		}
+		ports = append(ports, intPort)
+	}
+
+	sort.Ints(ports)
+
+	if len(ports) == 0 {
+		err = errors.Join(err, fmt.Errorf("no valid port found"))
+		return "", err
+	}
+
+	lowestPort = strconv.Itoa(ports[0])
+
+	return lowestPort, err
 }
