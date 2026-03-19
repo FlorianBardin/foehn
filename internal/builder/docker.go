@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -60,7 +61,7 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 		fmt.Printf("exposed port: %v with key : %v \n", v, k)
 	}
 
-	port, err := extractLowestPort(imageDetails.Config.ExposedPorts)
+	port, err := extractWebPort(imageDetails.Config.ExposedPorts)
 	if err != nil {
 		return ContainerInfo{}, err
 	}
@@ -101,17 +102,24 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 	return ContainerInfo{containerName, publicPort}, nil
 }
 
-func extractLowestPort(exposedPorts map[string]struct{}) (lowestPort string, err error) {
+func extractWebPort(exposedPorts map[string]struct{}) (lowestPort string, err error) {
 	var ports []int
+	priorityPorts := []int{80, 8080, 3000, 5173, 8000, 443, 8443, 5000}
 
 	for port := range exposedPorts {
-		intPort, cvtError := strconv.Atoi(strings.Split(port, "/")[0])
-		if cvtError != nil {
-			cvtError = fmt.Errorf("failed to convert port %s to int : %v", port, cvtError)
-			err = errors.Join(err, cvtError)
+		intPort, cvrtError := strconv.Atoi(strings.Split(port, "/")[0])
+		if cvrtError != nil {
+			cvrtError = fmt.Errorf("failed to convert port %s to int : %v", port, cvrtError)
+			err = errors.Join(err, cvrtError)
 			continue
 		}
 		ports = append(ports, intPort)
+	}
+
+	for _, priorityPort := range priorityPorts {
+		if slices.Contains(ports, priorityPort) {
+			return strconv.Itoa(priorityPort), err
+		}
 	}
 
 	sort.Ints(ports)
