@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/FlorianBardin/foehn/internal/proxy"
 	"github.com/docker/docker/client"
 
 	"github.com/FlorianBardin/foehn/internal/builder"
@@ -34,6 +35,8 @@ func main() {
 		}
 	}()
 
+	proxyClient := proxy.NewCaddyClient("http://localhost:2019")
+
 	err = git.CloneRepo(dirPath, repoURL)
 	if err != nil {
 		log.Print("Error cloning repo : ", err)
@@ -52,4 +55,13 @@ func main() {
 	}
 
 	fmt.Println(newContainerInfo)
+
+	domainName := "app-" + uniqueId + ".foehn.localhost"
+
+	err = proxyClient.AddRoute(ctx, domainName, newContainerInfo.PublicPort)
+	if err != nil {
+		return
+	}
+
+	fmt.Println(domainName)
 }
