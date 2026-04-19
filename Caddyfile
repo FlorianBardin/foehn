@@ -1,0 +1,3 @@
+:80 {
+    respond "Foehn PaaS - App not found" 404
+}
