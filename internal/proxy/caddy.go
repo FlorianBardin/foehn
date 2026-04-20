@@ -23,6 +23,7 @@ type CaddyHandle struct {
 }
 
 type CaddyRoute struct {
+	ID     string        `json:"@id"`
 	Match  []CaddyMatch  `json:"match"`
 	Handle []CaddyHandle `json:"handle"`
 }
@@ -32,8 +33,11 @@ type CaddyClient struct {
 	client *http.Client
 }
 
-func (c *CaddyClient) AddRoute(ctx context.Context, domainName string, targetPort string) error {
+func (c *CaddyClient) AddRoute(ctx context.Context, id string, targetPort string) (domainName string, err error) {
+	domainName = id + ".foehn.localhost"
+
 	newRoute := CaddyRoute{
+		ID: id,
 		Match: []CaddyMatch{
 			{
 				Host: []string{domainName},
@@ -53,7 +57,7 @@ func (c *CaddyClient) AddRoute(ctx context.Context, domainName string, targetPor
 
 	newRouteJson, err := json.Marshal(newRoute)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	request, err := http.NewRequestWithContext(
@@ -63,7 +67,7 @@ func (c *CaddyClient) AddRoute(ctx context.Context, domainName string, targetPor
 		bytes.NewReader(newRouteJson))
 	fmt.Println(c.apiURL + "/config/apps/http/servers/srv0/routes/0")
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	request.Header.Set("Content-Type", "application/json")
@@ -71,21 +75,21 @@ func (c *CaddyClient) AddRoute(ctx context.Context, domainName string, targetPor
 	resp, err := c.client.Do(request)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("%s", body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("%s", body)
 	}
 
-	return nil
+	return domainName, nil
 }
 
 func (c *CaddyClient) RemoveRoute(ctx context.Context, domainName string) error {

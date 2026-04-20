@@ -5,6 +5,6 @@ import (
 )
 
 type Router interface {
-	AddRoute(ctx context.Context, domainName string, targetPort string) error
-	RemoveRoute(ctx context.Context, domainName string) error
+	AddRoute(ctx context.Context, id string, targetPort string) (domainName string, err error)
+	RemoveRoute(ctx context.Context, id string) error
 }
