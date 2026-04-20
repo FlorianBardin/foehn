@@ -92,7 +92,28 @@ func (c *CaddyClient) AddRoute(ctx context.Context, id string, targetPort string
 	return domainName, nil
 }
 
-func (c *CaddyClient) RemoveRoute(ctx context.Context, domainName string) error {
+func (c *CaddyClient) RemoveRoute(ctx context.Context, id string) error {
+	request, err := http.NewRequestWithContext(ctx, "DELETE", c.apiURL+"/id/"+id, nil)
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("%s", body)
+	}
+
 	return nil
 }
 
