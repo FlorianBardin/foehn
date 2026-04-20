@@ -56,12 +56,17 @@ func main() {
 
 	fmt.Println(newContainerInfo)
 
-	domainName := "app-" + uniqueId + ".foehn.localhost"
-
-	err = proxyClient.AddRoute(ctx, domainName, newContainerInfo.PublicPort)
+	domainName, err := proxyClient.AddRoute(ctx, uniqueId, newContainerInfo.PublicPort)
 	if err != nil {
+		log.Print("Error adding route : ", err)
 		return
 	}
 
 	fmt.Println(domainName)
+
+	/*err = proxyClient.RemoveRoute(ctx, uniqueId)
+	if err != nil {
+		log.Print("Error removing route : ", err)
+		return
+	}*/
 }
