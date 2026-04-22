@@ -8,6 +8,15 @@ import (
 	"github.com/docker/docker/client"
 )
 
+type DeployRequest struct {
+	Url string `json:"url"`
+}
+
+type DeployResponse struct {
+	Id  string `json:"id"`
+	Url string `json:"url"`
+}
+
 func main() {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
