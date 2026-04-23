@@ -56,7 +56,7 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 	}
 
 	if len(imageDetails.Config.ExposedPorts) == 0 {
-		return ContainerInfo{}, fmt.Errorf("deployement refused: dockerfile should contains at least one exposed port")
+		return ContainerInfo{}, fmt.Errorf("deployment refused: dockerfile should contains at least one exposed port")
 	}
 
 	for k, v := range imageDetails.Config.ExposedPorts {
@@ -99,8 +99,8 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 	}
 
 	if len(inspectResponse.NetworkSettings.Ports[containerPort]) == 0 {
-		return ContainerInfo{}, fmt.Errorf("deployement refused: container should at least exposed one port")
 		_ = RemoveContainer(cli, ctx, creationResponse.ID)
+		return ContainerInfo{}, fmt.Errorf("deployment refused: container should at least exposed one port")
 	}
 	publicPort := inspectResponse.NetworkSettings.Ports[containerPort][0].HostPort
 
