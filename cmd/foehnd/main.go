@@ -83,25 +83,47 @@ func main() {
 		domainName, err := proxyClient.AddRoute(ctx, uniqueId, newContainerInfo.PublicPort)
 		if err != nil {
 			log.Print("Error adding route : ", err)
+			err := builder.RemoveContainer(cli, ctx, newContainerInfo.ID)
+			if err != nil {
+				log.Print("Error removing container : ", err)
+			}
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
+
 		responseBody := DeployResponse{
 			Id:  uniqueId,
 			Url: domainName,
 		}
+
 		jsonResponse, err := json.Marshal(responseBody)
 		if err != nil {
 			log.Print("Error marshalling response : ", err)
+			err := builder.RemoveContainer(cli, ctx, newContainerInfo.ID)
+			if err != nil {
+				log.Print("Error removing container : ", err)
+			}
+			err = proxyClient.RemoveRoute(ctx, uniqueId)
+			if err != nil {
+				log.Print("Error removing route : ", err)
+			}
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		_, err = w.Write(jsonResponse)
 		if err != nil {
 			log.Print("Error writing response : ", err)
+			err := builder.RemoveContainer(cli, ctx, newContainerInfo.ID)
+			if err != nil {
+				log.Print("Error removing container : ", err)
+			}
+			err = proxyClient.RemoveRoute(ctx, uniqueId)
+			if err != nil {
+				log.Print("Error removing route : ", err)
+			}
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
