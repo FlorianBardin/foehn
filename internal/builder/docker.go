@@ -14,6 +14,7 @@ import (
 
 	"github.com/docker/docker/api/types/build"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
@@ -137,6 +138,14 @@ func extractWebPort(exposedPorts map[string]struct{}) (lowestPort string, err er
 
 func RemoveContainer(cli *client.Client, ctx context.Context, containerID string) error {
 	err := cli.ContainerRemove(ctx, containerID, container.RemoveOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func RemoveImage(cli *client.Client, ctx context.Context, imageID string) error {
+	_, err := cli.ImageRemove(ctx, imageID, image.RemoveOptions{})
 	if err != nil {
 		return err
 	}
