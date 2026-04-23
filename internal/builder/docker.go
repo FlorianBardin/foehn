@@ -88,16 +88,19 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 
 	err = cli.ContainerStart(ctx, creationResponse.ID, container.StartOptions{})
 	if err != nil {
+		_ = RemoveContainer(cli, ctx, creationResponse.ID)
 		return ContainerInfo{}, err
 	}
 
 	inspectResponse, err := cli.ContainerInspect(ctx, creationResponse.ID)
 	if err != nil {
+		_ = RemoveContainer(cli, ctx, creationResponse.ID)
 		return ContainerInfo{}, err
 	}
 
 	if len(inspectResponse.NetworkSettings.Ports[containerPort]) == 0 {
 		return ContainerInfo{}, fmt.Errorf("deployement refused: container should at least exposed one port")
+		_ = RemoveContainer(cli, ctx, creationResponse.ID)
 	}
 	publicPort := inspectResponse.NetworkSettings.Ports[containerPort][0].HostPort
 
