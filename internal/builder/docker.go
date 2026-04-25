@@ -23,7 +23,6 @@ import (
 
 type ContainerInfo struct {
 	Name       string
-	ID         string
 	PublicPort string
 }
 
@@ -104,7 +103,7 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 	}
 	publicPort := inspectResponse.NetworkSettings.Ports[containerPort][0].HostPort
 
-	return ContainerInfo{containerName, creationResponse.ID, publicPort}, nil
+	return ContainerInfo{containerName, publicPort}, nil
 }
 
 func extractWebPort(exposedPorts map[string]struct{}) (lowestPort string, err error) {
