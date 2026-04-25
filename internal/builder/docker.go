@@ -138,12 +138,12 @@ func extractWebPort(exposedPorts map[string]struct{}) (lowestPort string, err er
 	return lowestPort, err
 }
 
-func RemoveContainer(cli *client.Client, ctx context.Context, containerID string) error {
-	err := cli.ContainerStop(ctx, containerID, container.StopOptions{})
+func StopAndRemoveContainer(ctx context.Context, cli *client.Client, appID string) error {
+	err := cli.ContainerStop(ctx, "foehn-app-"+appID, container.StopOptions{})
 	if err != nil {
 		return err
 	}
-	err = cli.ContainerRemove(ctx, containerID, container.RemoveOptions{})
+	err = cli.ContainerRemove(ctx, "foehn-app-"+appID, container.RemoveOptions{})
 	if err != nil {
 		return err
 	}
