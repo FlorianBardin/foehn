@@ -150,7 +150,7 @@ func StopAndRemoveContainer(ctx context.Context, cli *client.Client, appID strin
 	return nil
 }
 
-func RemoveImage(cli *client.Client, ctx context.Context, imageID string) error {
+func RemoveImage(ctx context.Context, cli *client.Client, imageID string) error {
 	_, err := cli.ImageRemove(ctx, imageID, image.RemoveOptions{})
 	if err != nil {
 		return err
