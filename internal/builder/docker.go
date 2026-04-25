@@ -17,7 +17,6 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/google/uuid"
 	"github.com/moby/go-archive"
 )
 
@@ -26,11 +25,12 @@ type ContainerInfo struct {
 	PublicPort string
 }
 
-func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (ContainerInfo, error) {
+func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string, appID string) (ContainerInfo, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute*10)
 	defer cancel()
 
-	containerName := "foehn-app-" + uuid.New().String()
+	imageName := "foehn-image-" + appID
+	containerName := "foehn-app-" + appID
 
 	readArchive, err := archive.TarWithOptions(dirPath, &archive.TarOptions{})
 	if err != nil {
@@ -38,7 +38,7 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 	}
 	defer readArchive.Close()
 
-	res, err := cli.ImageBuild(ctx, readArchive, build.ImageBuildOptions{Tags: []string{containerName + ":latest"}})
+	res, err := cli.ImageBuild(ctx, readArchive, build.ImageBuildOptions{Tags: []string{imageName + ":latest"}})
 	if err != nil {
 		return ContainerInfo{}, err
 	}
@@ -49,7 +49,7 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 		return ContainerInfo{}, err
 	}
 
-	imageDetails, err := cli.ImageInspect(ctx, containerName)
+	imageDetails, err := cli.ImageInspect(ctx, imageName)
 	if err != nil {
 		return ContainerInfo{}, err
 	}
@@ -70,7 +70,7 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 	containerPort := nat.Port(port + "/tcp")
 
 	config := &container.Config{
-		Image:        containerName + ":latest",
+		Image:        imageName + ":latest",
 		ExposedPorts: nat.PortSet{containerPort: {}},
 	}
 
@@ -87,18 +87,18 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 
 	err = cli.ContainerStart(ctx, creationResponse.ID, container.StartOptions{})
 	if err != nil {
-		_ = RemoveContainer(cli, ctx, creationResponse.ID)
+		_ = StopAndRemoveContainer(ctx, cli, appID)
 		return ContainerInfo{}, err
 	}
 
 	inspectResponse, err := cli.ContainerInspect(ctx, creationResponse.ID)
 	if err != nil {
-		_ = RemoveContainer(cli, ctx, creationResponse.ID)
+		_ = StopAndRemoveContainer(ctx, cli, appID)
 		return ContainerInfo{}, err
 	}
 
 	if len(inspectResponse.NetworkSettings.Ports[containerPort]) == 0 {
-		_ = RemoveContainer(cli, ctx, creationResponse.ID)
+		_ = StopAndRemoveContainer(ctx, cli, appID)
 		return ContainerInfo{}, fmt.Errorf("deployment refused: container should at least exposed one port")
 	}
 	publicPort := inspectResponse.NetworkSettings.Ports[containerPort][0].HostPort
