@@ -8,8 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/FlorianBardin/foehn/internal/builder"
-	"github.com/FlorianBardin/foehn/internal/git"
+	"github.com/FlorianBardin/foehn/internal/orchestrator"
 	"github.com/FlorianBardin/foehn/internal/proxy"
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
@@ -127,6 +126,21 @@ func main() {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+	})
+
+	router.HandleFunc("DELETE /api/v1/apps/{id}", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		appID := r.PathValue("id")
+		log.Printf("Deleting app id %s", appID)
+
+		err := newOrchestrator.Destroy(ctx, appID)
+		if err != nil {
+			log.Print("Error during destroy : ", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 	})
 
 	err = server.ListenAndServe()
