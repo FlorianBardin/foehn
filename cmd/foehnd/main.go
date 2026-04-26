@@ -5,13 +5,10 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	"github.com/FlorianBardin/foehn/internal/orchestrator"
 	"github.com/FlorianBardin/foehn/internal/proxy"
 	"github.com/docker/docker/client"
-	"github.com/google/uuid"
 )
 
 type DeployRequest struct {
@@ -24,19 +21,21 @@ type DeployResponse struct {
 }
 
 func main() {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	dockerCli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		log.Print("Error creating docker client : ", err)
 		return
 	}
 	defer func() {
-		err := cli.Close()
+		err := dockerCli.Close()
 		if err != nil {
 			log.Print("Error closing docker client : ", err)
 		}
 	}()
 
-	proxyClient := proxy.NewCaddyClient("http://localhost:2019")
+	proxyCli := proxy.NewCaddyClient("http://localhost:2019")
+
+	newOrchestrator := orchestrator.NewOrchestrator(dockerCli, proxyCli)
 
 	router := http.NewServeMux()
 
@@ -56,36 +55,9 @@ func main() {
 			return
 		}
 
-		uniqueId := uuid.New().String()
-		dirPath := filepath.Join(os.TempDir(), "foehn-build-"+uniqueId)
-
-		err = git.CloneRepo(dirPath, deployRequest.Url)
+		deploymentInfo, err := newOrchestrator.Deploy(ctx, deployRequest.Url)
 		if err != nil {
-			log.Print("Error cloning repo : ", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		defer func(path string) {
-			err := os.RemoveAll(path)
-			if err != nil {
-				log.Print("Failed to remove directory : ", path)
-			}
-		}(dirPath)
-
-		newContainerInfo, err := builder.BuildAndRun(cli, ctx, dirPath)
-		if err != nil {
-			log.Print("Failed to build and run from tar : ", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		domainName, err := proxyClient.AddRoute(ctx, uniqueId, newContainerInfo.PublicPort)
-		if err != nil {
-			log.Print("Error adding route : ", err)
-			err := builder.RemoveContainer(cli, ctx, newContainerInfo.ID)
-			if err != nil {
-				log.Print("Error removing container : ", err)
-			}
+			log.Print("Error during deploy : ", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -94,35 +66,19 @@ func main() {
 		w.WriteHeader(http.StatusCreated)
 
 		responseBody := DeployResponse{
-			Id:  uniqueId,
-			Url: domainName,
+			Id:  deploymentInfo.ID,
+			Url: deploymentInfo.Url,
 		}
 
 		jsonResponse, err := json.Marshal(responseBody)
 		if err != nil {
 			log.Print("Error marshalling response : ", err)
-			err := builder.RemoveContainer(cli, ctx, newContainerInfo.ID)
-			if err != nil {
-				log.Print("Error removing container : ", err)
-			}
-			err = proxyClient.RemoveRoute(ctx, uniqueId)
-			if err != nil {
-				log.Print("Error removing route : ", err)
-			}
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		_, err = w.Write(jsonResponse)
 		if err != nil {
 			log.Print("Error writing response : ", err)
-			err := builder.RemoveContainer(cli, ctx, newContainerInfo.ID)
-			if err != nil {
-				log.Print("Error removing container : ", err)
-			}
-			err = proxyClient.RemoveRoute(ctx, uniqueId)
-			if err != nil {
-				log.Print("Error removing route : ", err)
-			}
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
