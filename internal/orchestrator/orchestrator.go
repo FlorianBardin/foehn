@@ -23,6 +23,8 @@ type DeploymentInfo struct {
 	ID         string
 }
 
+// NewOrchestrator creates a new orchestrator using the address of a proxy client and a Docker client.
+// NewOrchestrator returns the address of this new orchestrator.
 func NewOrchestrator(dockerClient *client.Client, proxyClient proxy.Router) *Orchestrator {
 	return &Orchestrator{
 		dockerClient: dockerClient,
@@ -30,6 +32,11 @@ func NewOrchestrator(dockerClient *client.Client, proxyClient proxy.Router) *Orc
 	}
 }
 
+// Deploy coordinates all stages of an application's deployment. It generates a unique appID
+// and specifies the path where the project should be cloned (temporary directory), clones
+// the directory using [git.CloneRepo], builds its image, and launches its container using [builder.BuildAndRun],
+// then assigns it a unique domain name in the reverse proxy with [proxy.Router.AddRoute]. Deploy returns the information along
+// with the domain name and appID. In the case of error, the container and the domain name are removed.
 func (o *Orchestrator) Deploy(ctx context.Context, repoUrl string) (deploymentInfo DeploymentInfo, err error) {
 	appID := uuid.New().String()
 	dirPath := filepath.Join(os.TempDir(), "foehn-build-"+appID)
@@ -62,6 +69,9 @@ func (o *Orchestrator) Deploy(ctx context.Context, repoUrl string) (deploymentIn
 	return DeploymentInfo{DomainName: domainName, ID: appID}, nil
 }
 
+// Destroy removes the container whose appID is passed as an argument,
+// using [builder.StopAndRemoveContainer]. It also removes the corresponding
+// domain name from the reverse proxy with [proxy.Router.AddRoute].
 func (o *Orchestrator) Destroy(ctx context.Context, appID string) error {
 	containerErr := builder.StopAndRemoveContainer(ctx, o.dockerClient, appID)
 
