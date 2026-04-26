@@ -67,7 +67,7 @@ func main() {
 
 		responseBody := DeployResponse{
 			Id:  deploymentInfo.ID,
-			Url: deploymentInfo.Url,
+			Url: deploymentInfo.DomainName,
 		}
 
 		jsonResponse, err := json.Marshal(responseBody)

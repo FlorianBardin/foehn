@@ -19,8 +19,8 @@ type Orchestrator struct {
 }
 
 type DeploymentInfo struct {
-	Url string
-	ID  string
+	DomainName string
+	ID         string
 }
 
 func NewOrchestrator(dockerClient *client.Client, proxyClient proxy.Router) *Orchestrator {
@@ -59,7 +59,7 @@ func (o *Orchestrator) Deploy(ctx context.Context, repoUrl string) (deploymentIn
 		return DeploymentInfo{}, err
 	}
 
-	return DeploymentInfo{Url: domainName, ID: appID}, nil
+	return DeploymentInfo{DomainName: domainName, ID: appID}, nil
 }
 
 func (o *Orchestrator) Destroy(ctx context.Context, appID string) error {
