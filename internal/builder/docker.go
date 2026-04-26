@@ -25,6 +25,11 @@ type ContainerInfo struct {
 	PublicPort string
 }
 
+// BuildAndRun builds a Docker image from a project archive whose path
+// is passed as an argument. The project must contain a Dockerfile that
+// exposes at least one port. Using this image, it then launches a container
+// and maps the container’s selected port to a port on the host machine.
+// BuildAndRun then returns information about the created container.
 func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string, appID string) (ContainerInfo, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute*10)
 	defer cancel()
@@ -106,6 +111,11 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string, appID 
 	return ContainerInfo{containerName, publicPort}, nil
 }
 
+// extractWebPort returns the most suitable port from a list of exposed ports in a
+// Docker image passed as an argument. extractWebPort first retrieves all the exposed ports,
+// then compares them to the following list of priority ports in the same order: 80, 8080, 3000,
+// 5173, 8000, 443, 8443, 5000. If a priority port matches, extractWebPort returns it. Otherwise,
+// it returns the lowest-numbered exposed port.
 func extractWebPort(exposedPorts map[string]struct{}) (lowestPort string, err error) {
 	var ports []int
 	priorityPorts := []int{80, 8080, 3000, 5173, 8000, 443, 8443, 5000}
@@ -138,6 +148,7 @@ func extractWebPort(exposedPorts map[string]struct{}) (lowestPort string, err er
 	return lowestPort, err
 }
 
+// StopAndRemoveContainer stops and removes a container based on its appID, which is defined during deployment.
 func StopAndRemoveContainer(ctx context.Context, cli *client.Client, appID string) error {
 	err := cli.ContainerStop(ctx, "foehn-app-"+appID, container.StopOptions{})
 	if err != nil {
@@ -150,6 +161,7 @@ func StopAndRemoveContainer(ctx context.Context, cli *client.Client, appID strin
 	return nil
 }
 
+// RemoveImage removes a Docker image by its ID.
 func RemoveImage(ctx context.Context, cli *client.Client, imageID string) error {
 	_, err := cli.ImageRemove(ctx, imageID, image.RemoveOptions{})
 	if err != nil {
