@@ -61,3 +61,11 @@ func (o *Orchestrator) Deploy(ctx context.Context, repoUrl string) (deploymentIn
 
 	return DeploymentInfo{Url: domainName, ID: appID}, nil
 }
+
+func (o *Orchestrator) Destroy(ctx context.Context, appID string) error {
+	containerErr := builder.StopAndRemoveContainer(ctx, o.dockerClient, appID)
+
+	routeErr := o.proxyClient.RemoveRoute(ctx, appID)
+
+	return errors.Join(containerErr, routeErr)
+}
