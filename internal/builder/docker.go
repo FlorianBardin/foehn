@@ -14,22 +14,31 @@ import (
 
 	"github.com/docker/docker/api/types/build"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/google/uuid"
 	"github.com/moby/go-archive"
 )
 
+// ContainerInfo corresponds to the structure of
+// the information returned when creating
+// and running a container with [BuildAndRun].
 type ContainerInfo struct {
 	Name       string
 	PublicPort string
 }
 
-func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (ContainerInfo, error) {
+// BuildAndRun builds a Docker image from a project archive whose path
+// is passed as an argument. The project must contain a Dockerfile that
+// exposes at least one port. Using this image, it then launches a container
+// and maps the container’s selected port to a port on the host machine.
+// BuildAndRun then returns information about the created container.
+func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string, appID string) (ContainerInfo, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute*10)
 	defer cancel()
 
-	containerName := "foehn-app-" + uuid.New().String()
+	imageName := "foehn-image-" + appID
+	containerName := "foehn-app-" + appID
 
 	readArchive, err := archive.TarWithOptions(dirPath, &archive.TarOptions{})
 	if err != nil {
@@ -37,7 +46,7 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 	}
 	defer readArchive.Close()
 
-	res, err := cli.ImageBuild(ctx, readArchive, build.ImageBuildOptions{Tags: []string{containerName + ":latest"}})
+	res, err := cli.ImageBuild(ctx, readArchive, build.ImageBuildOptions{Tags: []string{imageName + ":latest"}})
 	if err != nil {
 		return ContainerInfo{}, err
 	}
@@ -48,13 +57,13 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 		return ContainerInfo{}, err
 	}
 
-	imageDetails, err := cli.ImageInspect(ctx, containerName)
+	imageDetails, err := cli.ImageInspect(ctx, imageName)
 	if err != nil {
 		return ContainerInfo{}, err
 	}
 
 	if len(imageDetails.Config.ExposedPorts) == 0 {
-		return ContainerInfo{}, fmt.Errorf("deployement refused: dockerfile should contains at least one exposed port")
+		return ContainerInfo{}, fmt.Errorf("deployment refused: dockerfile should contains at least one exposed port")
 	}
 
 	for k, v := range imageDetails.Config.ExposedPorts {
@@ -69,7 +78,7 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 	containerPort := nat.Port(port + "/tcp")
 
 	config := &container.Config{
-		Image:        containerName + ":latest",
+		Image:        imageName + ":latest",
 		ExposedPorts: nat.PortSet{containerPort: {}},
 	}
 
@@ -86,22 +95,30 @@ func BuildAndRun(cli *client.Client, ctx context.Context, dirPath string) (Conta
 
 	err = cli.ContainerStart(ctx, creationResponse.ID, container.StartOptions{})
 	if err != nil {
+		_ = StopAndRemoveContainer(ctx, cli, appID)
 		return ContainerInfo{}, err
 	}
 
 	inspectResponse, err := cli.ContainerInspect(ctx, creationResponse.ID)
 	if err != nil {
+		_ = StopAndRemoveContainer(ctx, cli, appID)
 		return ContainerInfo{}, err
 	}
 
 	if len(inspectResponse.NetworkSettings.Ports[containerPort]) == 0 {
-		return ContainerInfo{}, fmt.Errorf("deployement refused: container should at least exposed one port")
+		_ = StopAndRemoveContainer(ctx, cli, appID)
+		return ContainerInfo{}, fmt.Errorf("deployment refused: container should at least exposed one port")
 	}
 	publicPort := inspectResponse.NetworkSettings.Ports[containerPort][0].HostPort
 
 	return ContainerInfo{containerName, publicPort}, nil
 }
 
+// extractWebPort returns the most suitable port from a list of exposed ports in a
+// Docker image passed as an argument. extractWebPort first retrieves all the exposed ports,
+// then compares them to the following list of priority ports in the same order: 80, 8080, 3000,
+// 5173, 8000, 443, 8443, 5000. If a priority port matches, extractWebPort returns it. Otherwise,
+// it returns the lowest-numbered exposed port.
 func extractWebPort(exposedPorts map[string]struct{}) (lowestPort string, err error) {
 	var ports []int
 	priorityPorts := []int{80, 8080, 3000, 5173, 8000, 443, 8443, 5000}
@@ -132,4 +149,26 @@ func extractWebPort(exposedPorts map[string]struct{}) (lowestPort string, err er
 	lowestPort = strconv.Itoa(ports[0])
 
 	return lowestPort, err
+}
+
+// StopAndRemoveContainer stops and removes a container based on its appID, which is defined during deployment.
+func StopAndRemoveContainer(ctx context.Context, cli *client.Client, appID string) error {
+	err := cli.ContainerStop(ctx, "foehn-app-"+appID, container.StopOptions{})
+	if err != nil {
+		return err
+	}
+	err = cli.ContainerRemove(ctx, "foehn-app-"+appID, container.RemoveOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// RemoveImage removes a Docker image by its ID.
+func RemoveImage(ctx context.Context, cli *client.Client, imageID string) error {
+	_, err := cli.ImageRemove(ctx, imageID, image.RemoveOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
 }
