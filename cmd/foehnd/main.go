@@ -11,10 +11,14 @@ import (
 	"github.com/docker/docker/client"
 )
 
+// DeployRequest corresponds to the JSON structure
+// of the request body used to deploy an app.
 type DeployRequest struct {
 	Url string `json:"url"`
 }
 
+// DeployResponse corresponds to the JSON structure
+// of the response body when deploying an app.
 type DeployResponse struct {
 	Id  string `json:"id"`
 	Url string `json:"url"`
