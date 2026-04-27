@@ -33,11 +33,15 @@ type CaddyClient struct {
 	client *http.Client
 }
 
-func (c *CaddyClient) AddRoute(ctx context.Context, id string, targetPort string) (domainName string, err error) {
-	domainName = id + ".foehn.localhost"
+// AddRoute function creates the appropriate structure and sends a request to the Caddy server
+// to add a route to the reverse proxy, associating a unique domain name with the application container.
+// The route ID corresponds to the application ID. AddRoute returns the domain name associated to the
+// new route.
+func (c *CaddyClient) AddRoute(ctx context.Context, appID string, targetPort string) (domainName string, err error) {
+	domainName = appID + ".foehn.localhost"
 
 	newRoute := CaddyRoute{
-		ID: id,
+		ID: appID,
 		Match: []CaddyMatch{
 			{
 				Host: []string{domainName},
@@ -92,8 +96,11 @@ func (c *CaddyClient) AddRoute(ctx context.Context, id string, targetPort string
 	return domainName, nil
 }
 
-func (c *CaddyClient) RemoveRoute(ctx context.Context, id string) error {
-	request, err := http.NewRequestWithContext(ctx, "DELETE", c.apiURL+"/id/"+id, nil)
+// RemoveRoute sends a request to the Caddy server to delete the route
+// in the reverse proxy based on its ID, which corresponds to the
+// application's ID.
+func (c *CaddyClient) RemoveRoute(ctx context.Context, appID string) error {
+	request, err := http.NewRequestWithContext(ctx, "DELETE", c.apiURL+"/id/"+appID, nil)
 	if err != nil {
 		return err
 	}
@@ -117,6 +124,10 @@ func (c *CaddyClient) RemoveRoute(ctx context.Context, id string) error {
 	return nil
 }
 
+// NewCaddyClient creates a Caddy client structure corresponding
+// to the Router interface, composed of the URL to the Caddy server
+// and an HTTP client. NewCaddyClient returns the address of this
+// new structure.
 func NewCaddyClient(apiURL string) Router {
 	return &CaddyClient{apiURL: apiURL, client: &http.Client{}}
 }
