@@ -9,25 +9,35 @@ import (
 	"net/http"
 )
 
+// CaddyMatch corresponds to the object
+// inside “Match” slice in CaddyRoute.
 type CaddyMatch struct {
 	Host []string `json:"host"`
 }
 
+// Upstream corresponds to the object
+// inside “Upstreams” slice in CaddyHandle.
 type Upstream struct {
 	Dial string `json:"dial"`
 }
 
+// CaddyHandle corresponds to the object
+// inside “Handle” slice in CaddyRoute.
 type CaddyHandle struct {
 	Handler   string     `json:"handler"`
 	Upstreams []Upstream `json:"upstreams"`
 }
 
+// CaddyRoute is the main structure of the
+// JSON sent to the Caddy server to add a route.
 type CaddyRoute struct {
 	ID     string        `json:"@id"`
 	Match  []CaddyMatch  `json:"match"`
 	Handle []CaddyHandle `json:"handle"`
 }
 
+// CaddyClient is the structure that contains
+// the HTTP client and the URL of the Caddy server.
 type CaddyClient struct {
 	apiURL string
 	client *http.Client

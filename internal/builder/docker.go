@@ -20,6 +20,9 @@ import (
 	"github.com/moby/go-archive"
 )
 
+// ContainerInfo corresponds to the structure of
+// the information returned when creating
+// and running a container with [BuildAndRun].
 type ContainerInfo struct {
 	Name       string
 	PublicPort string

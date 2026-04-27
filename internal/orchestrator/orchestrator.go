@@ -13,11 +13,16 @@ import (
 	"github.com/google/uuid"
 )
 
+// Orchestrator is the structure that contains
+// the addresses of the Docker client and the
+// proxy client, for example, to perform a deployment.
 type Orchestrator struct {
 	dockerClient *client.Client
 	proxyClient  proxy.Router
 }
 
+// DeploymentInfo corresponds to the structure
+// of the information returned during deployment.
 type DeploymentInfo struct {
 	DomainName string
 	ID         string
@@ -71,7 +76,7 @@ func (o *Orchestrator) Deploy(ctx context.Context, repoUrl string) (deploymentIn
 
 // Destroy removes the container whose appID is passed as an argument,
 // using [builder.StopAndRemoveContainer]. It also removes the corresponding
-// domain name from the reverse proxy with [proxy.Router.AddRoute].
+// domain name from the reverse proxy with [proxy.Router.RemoveRoute].
 func (o *Orchestrator) Destroy(ctx context.Context, appID string) error {
 	containerErr := builder.StopAndRemoveContainer(ctx, o.dockerClient, appID)
 
